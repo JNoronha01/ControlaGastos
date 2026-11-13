@@ -26,5 +26,3 @@ class ControleGastos {
     return soma;
   }
 }
-
-
