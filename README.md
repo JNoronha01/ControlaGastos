@@ -1,17 +1,42 @@
-# controlagastos
+# Controle de Gastos
 
-A new Flutter project.
+App Flutter para registrar gastos do dia a dia e acompanhar quanto foi gasto nos últimos 30 dias.
 
-## Getting Started
+Projeto da disciplina de Flutter (Engenharia de Software, UMC), 2º semestre de 2026.
 
-This project is a starting point for a Flutter application.
+## Funcionalidades
 
-A few resources to get you started if this is your first Flutter project:
+- Cadastrar um gasto com descrição, valor e data (escolhida num calendário)
+- Ver o total gasto nos últimos 30 dias e o total geral
+- Listar os gastos dos últimos 30 dias, do mais recente para o mais antigo
+- Filtrar a lista por um dia específico pelo calendário
+- Remover um gasto
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Estrutura do código
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+| Arquivo | O que faz |
+|---|---|
+| `lib/gasto.dart` | Modelo: classe `Gasto` (descrição, valor, data) e `ControleGastos` (lista e getter `total`) |
+| `lib/formatadores.dart` | Mostra valores como `R$ 10,50` e datas como `03/11/2026` |
+| `lib/main.dart` | Tela principal: totais, lista e filtro por dia |
+| `lib/tela_novo_gasto.dart` | Formulário de cadastro com validação |
+| `test/widget_test.dart` | Testes do `ControleGastos` e da tela inicial |
+
+## Como rodar
+
+```
+flutter pub get
+flutter run
+```
+
+Para rodar os testes:
+
+```
+flutter test
+```
+
+## Melhorias futuras
+
+- Salvar os gastos no aparelho (hoje eles somem ao fechar o app)
+- Cofrinho com meta de economia e barra de progresso
+- Categorias de gasto
