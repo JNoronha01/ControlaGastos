@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'formatadores.dart';
 import 'gasto.dart';
 import 'tela_novo_gasto.dart';
+import 'tema.dart';
 
 void main() {
   runApp(const MyApp());
@@ -17,9 +18,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Controle de Gastos',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
+      // Cores, fonte e estilos do Figma (ver lib/tema.dart).
+      theme: criarTema(),
       // Deixa os textos prontos do Flutter (como o calendário)
       // em português do Brasil.
       locale: const Locale('pt', 'BR'),
@@ -29,6 +29,17 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      // No navegador do computador, o app fica com largura de celular
+      // no meio da tela, em vez de esticar de ponta a ponta.
+      builder: (context, child) => ColoredBox(
+        color: Cores.fundo,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: Medidas.larguraMaxima),
+            child: child,
+          ),
+        ),
+      ),
       home: const TelaGastos(),
     );
   }
@@ -66,9 +77,23 @@ class _TelaGastosState extends State<TelaGastos> {
     setState(() {
       _controle.removerGasto(gasto);
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('"${gasto.descricao}" removido')),
-    );
+    // Mostra o aviso com a opção de desfazer, para um toque sem querer
+    // na lixeira não apagar o gasto de vez.
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('"${gasto.descricao}" removido'),
+          action: SnackBarAction(
+            label: 'Desfazer',
+            onPressed: () {
+              setState(() {
+                _controle.adicionarGasto(gasto);
+              });
+            },
+          ),
+        ),
+      );
   }
 
   /// Abre o calendário para ver os gastos de um dia específico.
@@ -106,50 +131,56 @@ class _TelaGastosState extends State<TelaGastos> {
     return recentes.where((gasto) => _mesmoDia(gasto.data, dia)).toList();
   }
 
+  /// Separa a lista (que já vem do mais recente para o mais antigo)
+  /// em grupos, um por dia, como na tela "Gastos" do Figma.
+  List<List<Gasto>> _agruparPorDia(List<Gasto> gastos) {
+    final grupos = <List<Gasto>>[];
+    for (final gasto in gastos) {
+      if (grupos.isNotEmpty && _mesmoDia(grupos.last.first.data, gasto.data)) {
+        grupos.last.add(gasto);
+      } else {
+        grupos.add([gasto]);
+      }
+    }
+    return grupos;
+  }
+
   @override
   Widget build(BuildContext context) {
     final gastos = _gastosVisiveis;
+    final grupos = _agruparPorDia(gastos);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Controle de Gastos'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          IconButton(
-            onPressed: _filtrarPorDia,
-            icon: const Icon(Icons.calendar_month),
-            tooltip: 'Filtrar por dia',
+      body: SafeArea(
+        child: ListView(
+          // Espaço embaixo para o botão "Novo gasto" não cobrir o último item.
+          padding: const EdgeInsets.fromLTRB(
+            Medidas.margemTela,
+            16,
+            Medidas.margemTela,
+            104,
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _CartaoTotal(
-            totalMes: _controle.totalRecente(dias: 30),
-            totalGeral: _controle.total,
-          ),
-          _CabecalhoLista(
-            diaFiltrado: _diaFiltrado,
-            quantidade: gastos.length,
-            onLimparFiltro: _limparFiltro,
-          ),
-          // Expanded: a lista ocupa todo o espaço que sobra na Column.
-          Expanded(
-            child: gastos.isEmpty
-                ? _ListaVazia(filtrando: _diaFiltrado != null)
-                : ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 88),
-                    itemCount: gastos.length,
-                    itemBuilder: (context, index) {
-                      final gasto = gastos[index];
-                      return _ItemGasto(
-                        gasto: gasto,
-                        onRemover: () => _removerGasto(gasto),
-                      );
-                    },
-                  ),
-          ),
-        ],
+          children: [
+            _Topo(onFiltrarPorDia: _filtrarPorDia),
+            const SizedBox(height: 20),
+            _CartaoTotal(
+              totalMes: _controle.totalRecente(dias: 30),
+              totalGeral: _controle.total,
+            ),
+            const SizedBox(height: 28),
+            _CabecalhoLista(
+              diaFiltrado: _diaFiltrado,
+              quantidade: gastos.length,
+              onLimparFiltro: _limparFiltro,
+            ),
+            const SizedBox(height: 8),
+            if (gastos.isEmpty)
+              _ListaVazia(filtrando: _diaFiltrado != null)
+            else
+              for (final grupo in grupos)
+                _GrupoDoDia(gastos: grupo, onRemover: _removerGasto),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _abrirNovoGasto,
@@ -165,7 +196,31 @@ class _TelaGastosState extends State<TelaGastos> {
 // curto e fácil de ler. São Stateless porque só mostram o que recebem.
 // ---------------------------------------------------------------------------
 
-/// Cartão do topo com os totais.
+/// Título da tela e botão do calendário.
+class _Topo extends StatelessWidget {
+  const _Topo({required this.onFiltrarPorDia});
+
+  final VoidCallback onFiltrarPorDia;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(
+          child: Text('Controle de Gastos', style: Textos.tituloTela),
+        ),
+        IconButton(
+          onPressed: onFiltrarPorDia,
+          icon: const Icon(Icons.calendar_month_outlined),
+          color: Cores.texto,
+          tooltip: 'Filtrar por dia',
+        ),
+      ],
+    );
+  }
+}
+
+/// Cartão branco com os totais (cartão "Gasto no mês" do Figma).
 class _CartaoTotal extends StatelessWidget {
   const _CartaoTotal({required this.totalMes, required this.totalGeral});
 
@@ -174,39 +229,33 @@ class _CartaoTotal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cores = Theme.of(context).colorScheme;
-    final textos = Theme.of(context).textTheme;
-
-    return Card(
-      margin: const EdgeInsets.all(16),
-      color: cores.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Gasto nos últimos 30 dias', style: textos.titleSmall),
-            const SizedBox(height: 4),
-            Text(
-              formatarMoeda(totalMes),
-              style: textos.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: cores.onPrimaryContainer,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Total geral: ${formatarMoeda(totalGeral)}',
-              style: textos.bodySmall,
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Cores.superficie,
+        borderRadius: BorderRadius.circular(Medidas.raioCartao),
+        border: Border.all(color: Cores.borda),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Gasto nos últimos 30 dias', style: Textos.legendaForte),
+          const SizedBox(height: 4),
+          Text(formatarMoeda(totalMes), style: Textos.valorDestaque),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          Text(
+            'Total geral: ${formatarMoeda(totalGeral)}',
+            style: Textos.legenda,
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Linha acima da lista: título e, se houver filtro, um botão para limpar.
+/// Título acima da lista e, se houver filtro, um botão para limpar.
 class _CabecalhoLista extends StatelessWidget {
   const _CabecalhoLista({
     required this.diaFiltrado,
@@ -222,31 +271,73 @@ class _CabecalhoLista extends StatelessWidget {
   Widget build(BuildContext context) {
     final dia = diaFiltrado;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              dia == null
-                  ? 'Últimos 30 dias ($quantidade)'
-                  : 'Dia ${formatarData(dia)} ($quantidade)',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                dia == null ? 'Últimos 30 dias' : 'Dia ${formatarData(dia)}',
+                style: Textos.tituloSecao,
+              ),
+              Text(
+                quantidade == 1 ? '1 gasto' : '$quantidade gastos',
+                style: Textos.legenda,
+              ),
+            ],
           ),
-          if (dia != null)
-            TextButton.icon(
-              onPressed: onLimparFiltro,
-              icon: const Icon(Icons.close, size: 18),
-              label: const Text('Ver todos'),
-            ),
+        ),
+        if (dia != null)
+          TextButton.icon(
+            onPressed: onLimparFiltro,
+            icon: const Icon(Icons.close, size: 18),
+            label: const Text('Ver todos'),
+          ),
+      ],
+    );
+  }
+}
+
+/// Um dia da lista: "Hoje, 15 nov" + total do dia, e os gastos daquele dia.
+class _GrupoDoDia extends StatelessWidget {
+  const _GrupoDoDia({required this.gastos, required this.onRemover});
+
+  final List<Gasto> gastos;
+  final void Function(Gasto) onRemover;
+
+  @override
+  Widget build(BuildContext context) {
+    double totalDoDia = 0;
+    for (final gasto in gastos) {
+      totalDoDia += gasto.valor;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  formatarDiaDaLista(gastos.first.data),
+                  style: Textos.legendaForte,
+                ),
+              ),
+              Text(formatarMoeda(totalDoDia), style: Textos.legenda),
+            ],
+          ),
+          const SizedBox(height: 4),
+          for (final gasto in gastos)
+            _ItemGasto(gasto: gasto, onRemover: () => onRemover(gasto)),
         ],
       ),
     );
   }
 }
 
-/// Uma linha da lista de gastos.
+/// Uma linha da lista de gastos (componente "Item de gasto" do Figma).
 class _ItemGasto extends StatelessWidget {
   const _ItemGasto({required this.gasto, required this.onRemover});
 
@@ -255,26 +346,42 @@ class _ItemGasto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: ListTile(
-        leading: const CircleAvatar(child: Icon(Icons.receipt_long)),
-        title: Text(gasto.descricao),
-        subtitle: Text(formatarData(gasto.data)),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              formatarMoeda(gasto.valor),
-              style: const TextStyle(fontWeight: FontWeight.bold),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          // Círculo neutro com o ícone, sem cor chamativa.
+          Container(
+            width: 40,
+            height: 40,
+            decoration: const BoxDecoration(
+              color: Cores.superficie2,
+              shape: BoxShape.circle,
             ),
-            IconButton(
-              onPressed: onRemover,
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Remover',
+            child: const Icon(
+              Icons.receipt_long_outlined,
+              size: 20,
+              color: Cores.textoSecundario,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              gasto.descricao,
+              style: Textos.corpoForte,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(formatarMoeda(gasto.valor), style: Textos.corpoForte),
+          IconButton(
+            onPressed: onRemover,
+            icon: const Icon(Icons.delete_outline, size: 20),
+            color: Cores.textoSecundario,
+            tooltip: 'Remover',
+          ),
+        ],
       ),
     );
   }
@@ -288,26 +395,22 @@ class _ListaVazia extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.savings_outlined,
-              size: 64,
-              color: Theme.of(context).colorScheme.outline,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              filtrando
-                  ? 'Nenhum gasto neste dia.'
-                  : 'Nenhum gasto registrado.\nToque em "Novo gasto" para começar.',
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.savings_outlined,
+            size: 56,
+            color: Cores.textoSecundario,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            filtrando ? 'Nenhum gasto neste dia.' : 'Nenhum gasto registrado.\nToque em "Novo gasto" para começar.',
+            textAlign: TextAlign.center,
+            style: Textos.corpo.copyWith(color: Cores.textoSecundario),
+          ),
+        ],
       ),
     );
   }
