@@ -43,6 +43,30 @@ const _meses = [
   'dez',
 ];
 
+/// Nomes dos meses por extenso (usados também no seletor de mês).
+const mesesPorExtenso = [
+  'janeiro',
+  'fevereiro',
+  'março',
+  'abril',
+  'maio',
+  'junho',
+  'julho',
+  'agosto',
+  'setembro',
+  'outubro',
+  'novembro',
+  'dezembro',
+];
+
+/// DateTime(2020, 12) vira "Dezembro de 2020".
+/// Com [maiuscula] = false vira "dezembro de 2020" (para usar no meio da frase).
+String formatarMes(DateTime mes, {bool maiuscula = true}) {
+  final nome = mesesPorExtenso[mes.month - 1];
+  final inicio = maiuscula ? nome[0].toUpperCase() + nome.substring(1) : nome;
+  return '$inicio de ${mes.year}';
+}
+
 const _diasDaSemana = [
   'Segunda',
   'Terça',

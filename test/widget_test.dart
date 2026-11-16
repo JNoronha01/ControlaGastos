@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:controlagastos/formatadores.dart';
 import 'package:controlagastos/gasto.dart';
 import 'package:controlagastos/main.dart';
 
@@ -102,6 +103,38 @@ void main() {
       expect(controle.total, 1361.0); // 300 + 1016 + 45
     });
 
+    test('gastosDoMes e totalDoMes pegam só o mês escolhido', () {
+      final controle = ControleGastos();
+      final natal = Gasto(
+        descricao: 'Presentes',
+        valor: 250.0,
+        data: DateTime(2020, 12, 24),
+      );
+      final virada = Gasto(
+        descricao: 'Ceia',
+        valor: 120.0,
+        data: DateTime(2020, 12, 31),
+      );
+      final janeiro = Gasto(
+        descricao: 'IPVA',
+        valor: 900.0,
+        data: DateTime(2021, 1, 5),
+      );
+      final dezembroDeOutroAno = Gasto(
+        descricao: 'Mercado',
+        valor: 80.0,
+        data: DateTime(2021, 12, 10),
+      );
+      for (final g in [natal, janeiro, virada, dezembroDeOutroAno]) {
+        controle.adicionarGasto(g);
+      }
+
+      expect(controle.gastosDoMes(DateTime(2020, 12)), [virada, natal]);
+      expect(controle.totalDoMes(DateTime(2020, 12)), 370.0);
+      expect(controle.totalDoMes(DateTime(2021, 1)), 900.0);
+      expect(controle.gastosDoMes(DateTime(2019, 6)), isEmpty);
+    });
+
     test('calendário vai de 2000 até hoje, sem limite de 30 dias', () {
       expect(dataMinima, DateTime(2000, 1, 1));
       expect(
@@ -111,11 +144,50 @@ void main() {
     });
   });
 
-  testWidgets('tela inicial mostra o total zerado', (tester) async {
+  testWidgets('tela inicial abre no mês atual, sem o total geral', (
+    tester,
+  ) async {
     await tester.pumpWidget(const MyApp());
 
+    final mesAtual = formatarMes(DateTime.now(), maiuscula: false);
     expect(find.text('Controle de Gastos'), findsOneWidget);
+    expect(find.text('Gasto em $mesAtual'), findsOneWidget);
     expect(find.text('R\$ 0,00'), findsNWidgets(1));
+    expect(find.textContaining('Total geral'), findsNothing);
+  });
+
+  testWidgets('opção "Tudo" mostra os últimos 30 dias e o total geral', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MyApp());
+
+    await tester.tap(find.text('Tudo'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Gasto nos últimos 30 dias'), findsOneWidget);
     expect(find.text('Total geral: R\$ 0,00'), findsOneWidget);
+  });
+
+  testWidgets('setas trocam o mês e não deixam passar do mês atual', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MyApp());
+    final agora = DateTime.now();
+
+    await tester.tap(find.byTooltip('Mês anterior'));
+    await tester.pump();
+    expect(
+      find.text(formatarMes(DateTime(agora.year, agora.month - 1))),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Próximo mês'));
+    await tester.pump();
+    expect(find.text(formatarMes(agora)), findsOneWidget);
+
+    // No mês atual a seta de avançar fica desativada.
+    await tester.tap(find.byTooltip('Próximo mês'));
+    await tester.pump();
+    expect(find.text(formatarMes(agora)), findsOneWidget);
   });
 }

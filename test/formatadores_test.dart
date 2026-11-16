@@ -50,4 +50,13 @@ void main() {
       );
     });
   });
+
+  test('formatarMes escreve o mês por extenso', () {
+    expect(formatarMes(DateTime(2020, 12)), 'Dezembro de 2020');
+    expect(formatarMes(DateTime(2021, 3)), 'Março de 2021');
+    expect(
+      formatarMes(DateTime(2020, 12), maiuscula: false),
+      'dezembro de 2020',
+    );
+  });
 }

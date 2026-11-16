@@ -69,6 +69,25 @@ class ControleGastos {
     return doDia;
   }
 
+  /// Gastos de um mês (ex.: dezembro de 2020), do mais recente para o
+  /// mais antigo. Só o ano e o mês de [mes] importam; o dia é ignorado.
+  List<Gasto> gastosDoMes(DateTime mes) {
+    final doMes = _gastos
+        .where((g) => g.data.year == mes.year && g.data.month == mes.month)
+        .toList();
+    doMes.sort((a, b) => b.data.compareTo(a.data));
+    return doMes;
+  }
+
+  /// Soma só os gastos de um mês.
+  double totalDoMes(DateTime mes) {
+    double soma = 0.0;
+    for (var gasto in gastosDoMes(mes)) {
+      soma += gasto.valor;
+    }
+    return soma;
+  }
+
   /// Soma só os gastos dos últimos [dias] dias.
   double totalRecente({int dias = 30}) {
     double soma = 0.0;
