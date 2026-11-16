@@ -50,6 +50,14 @@ class ControleGastos {
     return recentes;
   }
 
+  /// Todos os gastos, de qualquer data, do mais recente para o mais antigo.
+  /// É a lista que aparece na tela inicial.
+  List<Gasto> get todosOrdenados {
+    final todos = List<Gasto>.from(_gastos);
+    todos.sort((a, b) => b.data.compareTo(a.data));
+    return todos;
+  }
+
   /// Todos os gastos de um dia específico (de qualquer data, não só
   /// dos últimos 30 dias), do mais recente para o mais antigo.
   List<Gasto> gastosDoDia(DateTime dia) {

@@ -69,11 +69,9 @@ class _TelaGastosState extends State<TelaGastos> {
     if (gasto != null) {
       setState(() {
         _controle.adicionarGasto(gasto);
-        // Gasto antigo (mais de 30 dias) não aparece na lista padrão.
-        // Para ele não "sumir", a tela já mostra o dia em que ele foi salvo.
-        if (!_controle.gastosRecentes(dias: 30).contains(gasto)) {
-          _diaFiltrado = gasto.data;
-        }
+        // Tira o filtro de dia: assim o gasto que acabou de ser salvo
+        // sempre aparece na lista, seja de hoje ou de anos atrás.
+        _diaFiltrado = null;
       });
     }
   }
@@ -133,11 +131,11 @@ class _TelaGastosState extends State<TelaGastos> {
   bool _mesmoDia(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
-  /// Lista que aparece na tela: últimos 30 dias, ou o dia filtrado
-  /// (que pode ser de qualquer data, inclusive de anos atrás).
+  /// Lista que aparece na tela: TODOS os gastos (de qualquer ano),
+  /// ou só os do dia escolhido no calendário.
   List<Gasto> get _gastosVisiveis {
     final dia = _diaFiltrado;
-    if (dia == null) return _controle.gastosRecentes(dias: 30);
+    if (dia == null) return _controle.todosOrdenados;
     return _controle.gastosDoDia(dia);
   }
 
@@ -288,7 +286,7 @@ class _CabecalhoLista extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                dia == null ? 'Últimos 30 dias' : 'Dia ${formatarData(dia)}',
+                dia == null ? 'Todos os gastos' : 'Dia ${formatarData(dia)}',
                 style: Textos.tituloSecao,
               ),
               Text(

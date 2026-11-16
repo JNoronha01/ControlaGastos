@@ -77,6 +77,31 @@ void main() {
       expect(controle.gastosRecentes(), isEmpty); // fora dos 30 dias
     });
 
+    test('todosOrdenados junta gastos de anos diferentes, do mais novo ao mais antigo', () {
+      final controle = ControleGastos();
+      final de2022 = Gasto(
+        descricao: 'Curso',
+        valor: 300.0,
+        data: DateTime(2022, 5, 3),
+      );
+      final hoje = Gasto(
+        descricao: 'Almoço',
+        valor: 1016.0,
+        data: DateTime.now(),
+      );
+      final de2016 = Gasto(
+        descricao: 'Livro',
+        valor: 45.0,
+        data: DateTime(2016, 8, 20),
+      );
+      controle.adicionarGasto(de2022);
+      controle.adicionarGasto(hoje);
+      controle.adicionarGasto(de2016);
+
+      expect(controle.todosOrdenados, [hoje, de2022, de2016]);
+      expect(controle.total, 1361.0); // 300 + 1016 + 45
+    });
+
     test('calendário vai de 2000 até hoje, sem limite de 30 dias', () {
       expect(dataMinima, DateTime(2000, 1, 1));
       expect(
