@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'aparencia.dart';
+import 'cartoes_resumo.dart';
 import 'formatadores.dart';
 import 'gasto.dart';
 import 'seletor_mes.dart';
@@ -182,7 +184,7 @@ class _TelaGastosState extends State<TelaGastos> {
   List<Gasto> get _gastosVisiveis {
     final dia = _diaFiltrado;
     if (dia != null) return _controle.gastosDoDia(dia);
-    if (_modo == ModoVisao.mes) return _controle.gastosDoMes(_mes);
+    if (_modo == ModoVisao.mes) return _controle.lancamentosDoMes(_mes);
     return _controle.todosOrdenados;
   }
 
@@ -205,6 +207,7 @@ class _TelaGastosState extends State<TelaGastos> {
     final gastos = _gastosVisiveis;
     final grupos = _agruparPorDia(gastos);
     final porMes = _modo == ModoVisao.mes;
+    final categorias = _controle.totalPorCategoria(porMes ? _mes : null);
 
     return Scaffold(
       body: SafeArea(
@@ -231,21 +234,23 @@ class _TelaGastosState extends State<TelaGastos> {
               ),
             ],
             const SizedBox(height: 16),
-            // No modo "Por mês" o cartão mostra só o mês, sem o total geral.
-            if (porMes)
-              _CartaoTotal(
-                titulo: 'Gasto em ${formatarMes(_mes, maiuscula: false)}',
-                valor: _controle.totalDoMes(_mes),
-              )
-            else
-              _CartaoTotal(
-                titulo: 'Gasto nos últimos 30 dias',
-                valor: _controle.totalRecente(dias: 30),
-                rodape: 'Total geral: ${formatarMoeda(_controle.total)}',
-              ),
+            // Saldo + gráfico (gasto, investido, sobrando). No modo
+            // "Por mês" mostra só o mês escolhido, sem nada do total geral.
+            CartaoSaldo(
+              titulo: porMes
+                  ? 'Saldo de ${formatarMes(_mes, maiuscula: false)}'
+                  : 'Saldo total',
+              resumo: porMes
+                  ? _controle.resumoDoMes(_mes)
+                  : _controle.resumoGeral,
+            ),
+            if (categorias.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              CartaoCategorias(itens: categorias),
+            ],
             const SizedBox(height: 28),
             _CabecalhoLista(
-              titulo: porMes ? 'Gastos do mês' : 'Todos os gastos',
+              titulo: porMes ? 'Lançamentos do mês' : 'Todos os lançamentos',
               diaFiltrado: _diaFiltrado,
               quantidade: gastos.length,
               onLimparFiltro: _limparFiltro,
@@ -254,11 +259,11 @@ class _TelaGastosState extends State<TelaGastos> {
             if (gastos.isEmpty)
               _ListaVazia(
                 mensagem: _diaFiltrado != null
-                    ? 'Nenhum gasto neste dia.'
+                    ? 'Nada registrado neste dia.'
                     : porMes
-                    ? 'Nenhum gasto em ${formatarMes(_mes, maiuscula: false)}.'
-                    : 'Nenhum gasto registrado.\n'
-                          'Toque em "Novo gasto" para começar.',
+                    ? 'Nada registrado em ${formatarMes(_mes, maiuscula: false)}.'
+                    : 'Nada registrado ainda.\n'
+                          'Toque em "Novo lançamento" para começar.',
               )
             else
               for (final grupo in grupos)
@@ -269,7 +274,7 @@ class _TelaGastosState extends State<TelaGastos> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _abrirNovoGasto,
         icon: const Icon(Icons.add),
-        label: const Text('Novo gasto'),
+        label: const Text('Novo lançamento'),
       ),
     );
   }
@@ -388,42 +393,6 @@ class _NavegadorDeMes extends StatelessWidget {
   }
 }
 
-/// Cartão branco com o total (cartão "Gasto no mês" do Figma).
-/// [rodape] é opcional: no modo "Por mês" ele não aparece.
-class _CartaoTotal extends StatelessWidget {
-  const _CartaoTotal({required this.titulo, required this.valor, this.rodape});
-
-  final String titulo;
-  final double valor;
-  final String? rodape;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Cores.superficie,
-        borderRadius: BorderRadius.circular(Medidas.raioCartao),
-        border: Border.all(color: Cores.borda),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(titulo, style: Textos.legendaForte),
-          const SizedBox(height: 4),
-          Text(formatarMoeda(valor), style: Textos.valorDestaque),
-          if (rodape != null) ...[
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
-            Text(rodape!, style: Textos.legenda),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 /// Título acima da lista e, se houver filtro, um botão para limpar.
 class _CabecalhoLista extends StatelessWidget {
   const _CabecalhoLista({
@@ -453,7 +422,7 @@ class _CabecalhoLista extends StatelessWidget {
                 style: Textos.tituloSecao,
               ),
               Text(
-                quantidade == 1 ? '1 gasto' : '$quantidade gastos',
+                quantidade == 1 ? '1 lançamento' : '$quantidade lançamentos',
                 style: Textos.legenda,
               ),
             ],
@@ -479,9 +448,10 @@ class _GrupoDoDia extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // O total do dia soma só os gastos (entradas e investimentos não).
     double totalDoDia = 0;
     for (final gasto in gastos) {
-      totalDoDia += gasto.valor;
+      if (gasto.ehGasto) totalDoDia += gasto.valor;
     }
 
     return Padding(
@@ -496,7 +466,8 @@ class _GrupoDoDia extends StatelessWidget {
                   style: Textos.legendaForte,
                 ),
               ),
-              Text(formatarMoeda(totalDoDia), style: Textos.legenda),
+              if (totalDoDia > 0)
+                Text(formatarMoeda(totalDoDia), style: Textos.legenda),
             ],
           ),
           const SizedBox(height: 4),
@@ -517,6 +488,8 @@ class _ItemGasto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final entrada = gasto.tipo == TipoLancamento.entrada;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -529,23 +502,37 @@ class _ItemGasto extends StatelessWidget {
               color: Cores.superficie2,
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.receipt_long_outlined,
+            child: Icon(
+              iconeDoLancamento(gasto),
               size: 20,
               color: Cores.textoSecundario,
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              gasto.descricao,
-              style: Textos.corpoForte,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  gasto.descricao,
+                  style: Textos.corpoForte,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(rotuloDoLancamento(gasto), style: Textos.legenda),
+              ],
             ),
           ),
           const SizedBox(width: 8),
-          Text(formatarMoeda(gasto.valor), style: Textos.corpoForte),
+          // Entradas aparecem com "+" e em verde: é dinheiro chegando.
+          Text(
+            entrada
+                ? '+${formatarMoeda(gasto.valor)}'
+                : formatarMoeda(gasto.valor),
+            style: Textos.corpoForte.copyWith(
+              color: entrada ? Cores.primaria : Cores.texto,
+            ),
+          ),
           IconButton(
             onPressed: onRemover,
             icon: const Icon(Icons.delete_outline, size: 20),

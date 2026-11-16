@@ -135,6 +135,112 @@ void main() {
       expect(controle.gastosDoMes(DateTime(2019, 6)), isEmpty);
     });
 
+    test('saldo = entradas − gastos − investido, só do mês escolhido', () {
+      final controle = ControleGastos();
+      final nov = DateTime(2026, 11, 5);
+      controle.adicionarGasto(
+        Gasto(
+          descricao: 'Salário',
+          valor: 2000,
+          data: nov,
+          tipo: TipoLancamento.entrada,
+        ),
+      );
+      controle.adicionarGasto(
+        Gasto(
+          descricao: 'Mercado',
+          valor: 100,
+          data: nov,
+          categoria: Categoria.mercado,
+        ),
+      );
+      controle.adicionarGasto(
+        Gasto(
+          descricao: 'Tesouro',
+          valor: 500,
+          data: nov,
+          tipo: TipoLancamento.investimento,
+        ),
+      );
+      // Outro mês: não entra no resumo de novembro.
+      controle.adicionarGasto(
+        Gasto(descricao: 'Uber', valor: 50, data: DateTime(2026, 10, 1)),
+      );
+
+      final resumo = controle.resumoDoMes(DateTime(2026, 11));
+      expect(resumo.entradas, 2000);
+      expect(resumo.gastos, 100);
+      expect(resumo.investido, 500);
+      expect(resumo.saldo, 1400);
+
+      // total e totalDoMes continuam somando só gastos.
+      expect(controle.total, 150);
+      expect(controle.totalDoMes(DateTime(2026, 11)), 100);
+      expect(controle.lancamentosDoMes(DateTime(2026, 11)).length, 3);
+      expect(controle.gastosDoMes(DateTime(2026, 11)).length, 1);
+    });
+
+    test('totalPorCategoria soma cada categoria, da maior para a menor', () {
+      final controle = ControleGastos();
+      final dia = DateTime(2026, 11, 10);
+      controle.adicionarGasto(
+        Gasto(
+          descricao: 'Uber',
+          valor: 50,
+          data: dia,
+          categoria: Categoria.transporte,
+        ),
+      );
+      controle.adicionarGasto(
+        Gasto(
+          descricao: 'Mercado',
+          valor: 100,
+          data: dia,
+          categoria: Categoria.mercado,
+        ),
+      );
+      controle.adicionarGasto(
+        Gasto(
+          descricao: 'Streaming',
+          valor: 219,
+          data: dia,
+          categoria: Categoria.assinaturas,
+        ),
+      );
+      controle.adicionarGasto(
+        Gasto(
+          descricao: 'Feira',
+          valor: 30,
+          data: dia,
+          categoria: Categoria.mercado,
+        ),
+      );
+
+      final porCategoria = controle.totalPorCategoria(DateTime(2026, 11));
+      expect(porCategoria.map((e) => e.key).toList(), [
+        Categoria.assinaturas,
+        Categoria.mercado,
+        Categoria.transporte,
+      ]);
+      expect(porCategoria[1].value, 130);
+      expect(controle.totalPorCategoria(DateTime(2026, 10)), isEmpty);
+    });
+
+    test('entradas e investimentos não têm categoria; gasto sem categoria vira Outros', () {
+      final entrada = Gasto(
+        descricao: 'Pix',
+        valor: 10,
+        data: DateTime.now(),
+        tipo: TipoLancamento.entrada,
+        categoria: Categoria.mercado,
+      );
+      expect(entrada.categoria, isNull);
+      expect(
+        Gasto(descricao: 'X', valor: 1, data: DateTime.now()).categoria,
+        Categoria.outros,
+      );
+    });
+
     test('calendário vai de 2000 até hoje, sem limite de 30 dias', () {
       expect(dataMinima, DateTime(2000, 1, 1));
       expect(
@@ -151,21 +257,35 @@ void main() {
 
     final mesAtual = formatarMes(DateTime.now(), maiuscula: false);
     expect(find.text('Controle de Gastos'), findsOneWidget);
-    expect(find.text('Gasto em $mesAtual'), findsOneWidget);
-    expect(find.text('R\$ 0,00'), findsNWidgets(1));
-    expect(find.textContaining('Total geral'), findsNothing);
+    expect(find.text('Saldo de $mesAtual'), findsOneWidget);
+    expect(find.text('Saldo total'), findsNothing);
+    // Legenda do gráfico.
+    expect(find.text('Gasto'), findsOneWidget);
+    expect(find.text('Investido'), findsOneWidget);
+    expect(find.text('Sobrando'), findsOneWidget);
   });
 
-  testWidgets('opção "Tudo" mostra os últimos 30 dias e o total geral', (
-    tester,
-  ) async {
+  testWidgets('opção "Tudo" mostra o saldo total', (tester) async {
     await tester.pumpWidget(const MyApp());
 
     await tester.tap(find.text('Tudo'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Gasto nos últimos 30 dias'), findsOneWidget);
-    expect(find.text('Total geral: R\$ 0,00'), findsOneWidget);
+    expect(find.text('Saldo total'), findsOneWidget);
+    expect(find.text('Todos os lançamentos'), findsOneWidget);
+  });
+
+  testWidgets('formulário pede categoria só para gasto', (tester) async {
+    await tester.pumpWidget(const MyApp());
+
+    await tester.tap(find.text('Novo lançamento'));
+    await tester.pumpAndSettle();
+    expect(find.text('Categoria'), findsOneWidget);
+
+    await tester.tap(find.text('Entrada'));
+    await tester.pumpAndSettle();
+    expect(find.text('Categoria'), findsNothing);
+    expect(find.text('Salvar entrada'), findsOneWidget);
   });
 
   testWidgets('setas trocam o mês e não deixam passar do mês atual', (

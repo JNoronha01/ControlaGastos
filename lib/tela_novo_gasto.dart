@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'aparencia.dart';
 import 'formatadores.dart';
 import 'gasto.dart';
 import 'tema.dart';
@@ -24,6 +25,17 @@ class _TelaNovoGastoState extends State<TelaNovoGasto> {
 
   // Começa com a data de hoje; o usuário pode trocar pelo calendário.
   DateTime _data = DateTime.now();
+
+  // Gasto, entrada ou investimento. Começa em "Gasto", o mais comum.
+  TipoLancamento _tipo = TipoLancamento.gasto;
+
+  // Categoria escolhida (só para gastos). null = ainda não escolheu.
+  Categoria? _categoria;
+
+  // Mostra o aviso "Escolha uma categoria" depois de tentar salvar.
+  bool _faltouCategoria = false;
+
+  bool get _ehGasto => _tipo == TipoLancamento.gasto;
 
   // Controllers precisam ser descartados quando a tela fecha,
   // para liberar memória.
@@ -51,7 +63,7 @@ class _TelaNovoGastoState extends State<TelaNovoGasto> {
       initialDate: _data,
       firstDate: dataMinima,
       lastDate: DateTime.now(),
-      helpText: 'Data do gasto',
+      helpText: 'Data',
     );
 
     // Se o usuário cancelar, o calendário devolve null.
@@ -65,12 +77,17 @@ class _TelaNovoGastoState extends State<TelaNovoGasto> {
   void _salvar() {
     // validate() roda o validator de cada campo e mostra as mensagens
     // de erro. Se algum falhar, não salva.
-    if (!_formKey.currentState!.validate()) return;
+    final camposOk = _formKey.currentState!.validate();
+    final categoriaOk = !_ehGasto || _categoria != null;
+    setState(() => _faltouCategoria = !categoriaOk);
+    if (!camposOk || !categoriaOk) return;
 
     final gasto = Gasto(
       descricao: _descricaoController.text.trim(),
       valor: _lerValor()!,
       data: _data,
+      tipo: _tipo,
+      categoria: _categoria,
     );
 
     // Fecha esta tela e entrega o gasto para quem a abriu.
@@ -96,7 +113,7 @@ class _TelaNovoGastoState extends State<TelaNovoGasto> {
           tooltip: 'Fechar',
         ),
         titleSpacing: 0,
-        title: const Text('Novo gasto'),
+        title: const Text('Novo lançamento'),
       ),
       body: Form(
         key: _formKey,
@@ -110,8 +127,33 @@ class _TelaNovoGastoState extends State<TelaNovoGasto> {
                   horizontal: Medidas.margemTela,
                 ),
                 children: [
+                  const SizedBox(height: 8),
+                  // O que é este lançamento: gasto, entrada ou investimento.
+                  SegmentedButton<TipoLancamento>(
+                    segments: [
+                      for (final tipo in TipoLancamento.values)
+                        ButtonSegment(
+                          value: tipo,
+                          label: Text(nomeDoTipo(tipo)),
+                        ),
+                    ],
+                    selected: {_tipo},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (escolha) => setState(() {
+                      _tipo = escolha.first;
+                      _faltouCategoria = false;
+                    }),
+                    style: SegmentedButton.styleFrom(
+                      backgroundColor: Cores.superficie,
+                      foregroundColor: Cores.textoSecundario,
+                      selectedBackgroundColor: Cores.primariaClara,
+                      selectedForegroundColor: Cores.primaria,
+                      side: const BorderSide(color: Cores.borda),
+                      textStyle: Textos.corpoForte,
+                    ),
+                  ),
                   // Valor em destaque no topo: é o que mais importa.
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   const Text(
                     'Valor',
                     textAlign: TextAlign.center,
@@ -174,8 +216,13 @@ class _TelaNovoGastoState extends State<TelaNovoGasto> {
                   TextFormField(
                     controller: _descricaoController,
                     style: Textos.corpo,
-                    decoration: const InputDecoration(
-                      hintText: 'Ex.: Mercado, Uber, Lanche',
+                    decoration: InputDecoration(
+                      hintText: switch (_tipo) {
+                        TipoLancamento.gasto => 'Ex.: Mercado, Uber, Lanche',
+                        TipoLancamento.entrada => 'Ex.: Salário, Pix recebido',
+                        TipoLancamento.investimento =>
+                          'Ex.: Tesouro Direto, Poupança',
+                      },
                     ),
                     textCapitalization: TextCapitalization.sentences,
                     textInputAction: TextInputAction.done,
@@ -187,6 +234,59 @@ class _TelaNovoGastoState extends State<TelaNovoGasto> {
                       return null;
                     },
                   ),
+                  // Categoria: só aparece para gastos.
+                  if (_ehGasto) ...[
+                    const SizedBox(height: 20),
+                    const _Rotulo('Categoria'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final categoria in Categoria.values)
+                          ChoiceChip(
+                            avatar: Icon(
+                              iconeDaCategoria(categoria),
+                              size: 18,
+                              color: _categoria == categoria
+                                  ? Cores.primaria
+                                  : Cores.textoSecundario,
+                            ),
+                            label: Text(categoria.nome),
+                            selected: _categoria == categoria,
+                            showCheckmark: false,
+                            onSelected: (_) => setState(() {
+                              _categoria = categoria;
+                              _faltouCategoria = false;
+                            }),
+                            labelStyle: Textos.corpo.copyWith(
+                              color: _categoria == categoria
+                                  ? Cores.primaria
+                                  : Cores.texto,
+                            ),
+                            backgroundColor: Cores.superficie,
+                            selectedColor: Cores.primariaClara,
+                            side: BorderSide(
+                              color: _categoria == categoria
+                                  ? Cores.primaria
+                                  : Cores.borda,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                Medidas.raioCampo,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (_faltouCategoria)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, left: 4),
+                        child: Text(
+                          'Escolha uma categoria',
+                          style: Textos.legenda.copyWith(color: Cores.erro),
+                        ),
+                      ),
+                  ],
                   const SizedBox(height: 20),
                   const _Rotulo('Data'),
                   // InkWell deixa a "caixa" da data clicável; InputDecorator
@@ -219,7 +319,7 @@ class _TelaNovoGastoState extends State<TelaNovoGasto> {
                 ),
                 child: FilledButton(
                   onPressed: _salvar,
-                  child: const Text('Salvar gasto'),
+                  child: Text('Salvar ${nomeDoTipo(_tipo).toLowerCase()}'),
                 ),
               ),
             ),

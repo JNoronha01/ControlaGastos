@@ -17,6 +17,11 @@ class Cores {
   static const sobrePrimaria = Color(0xFFFFFFFF); // texto em cima da primária
   static const alerta = Color(0xFF9A5B00); // a partir de 90% do orçamento
   static const erro = Color(0xFFB3261E); // acima do limite / erro
+
+  // Gráfico do saldo: para onde foi o dinheiro que entrou.
+  static const graficoGasto = Color(0xFFC2603F); // gasto
+  static const graficoInvestido = Color(0xFF1F5C4A); // investido (primária)
+  static const graficoSobrando = Color(0xFFA8CBBD); // ainda sobrando
 }
 
 /// Estilos de texto do Figma (fonte Inter).
