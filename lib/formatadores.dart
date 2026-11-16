@@ -54,7 +54,7 @@ const _diasDaSemana = [
 ];
 
 /// Título de cada grupo da lista, como no Figma:
-/// "Hoje, 15 nov", "Ontem, 14 nov", "Quinta, 12 nov".
+/// "Hoje, 15 nov", "Ontem, 14 nov", "Quinta, 12 nov", "Sexta, 10 nov 2023".
 /// [hoje] pode ser passado nos testes; no app usa a data atual.
 String formatarDiaDaLista(DateTime data, {DateTime? hoje}) {
   final agora = hoje ?? DateTime.now();
@@ -71,5 +71,7 @@ String formatarDiaDaLista(DateTime data, {DateTime? hoje}) {
     // weekday vai de 1 (segunda) a 7 (domingo).
     nome = _diasDaSemana[data.weekday - 1];
   }
-  return '$nome, ${data.day} ${_meses[data.month - 1]}';
+  // Datas de outros anos ganham o ano no fim: "Sexta, 10 nov 2023".
+  final ano = data.year == agora.year ? '' : ' ${data.year}';
+  return '$nome, ${data.day} ${_meses[data.month - 1]}$ano';
 }

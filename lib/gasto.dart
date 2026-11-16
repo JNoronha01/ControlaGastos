@@ -1,3 +1,8 @@
+/// Data mais antiga que os calendários deixam escolher.
+/// A mais nova é sempre "hoje", então o intervalo cresce sozinho
+/// a cada dia, sem nunca esconder os dias antigos.
+final DateTime dataMinima = DateTime(2000, 1, 1);
+
 /// Representa UM gasto registrado pelo usuário.
 class Gasto {
   final String descricao;
@@ -43,6 +48,17 @@ class ControleGastos {
     // b.compareTo(a) ordena do maior (mais recente) para o menor.
     recentes.sort((a, b) => b.data.compareTo(a.data));
     return recentes;
+  }
+
+  /// Todos os gastos de um dia específico (de qualquer data, não só
+  /// dos últimos 30 dias), do mais recente para o mais antigo.
+  List<Gasto> gastosDoDia(DateTime dia) {
+    final inicio = _inicioDoDia(dia);
+    final doDia = _gastos
+        .where((gasto) => _inicioDoDia(gasto.data) == inicio)
+        .toList();
+    doDia.sort((a, b) => b.data.compareTo(a.data));
+    return doDia;
   }
 
   /// Soma só os gastos dos últimos [dias] dias.

@@ -43,14 +43,14 @@ class _TelaNovoGastoState extends State<TelaNovoGasto> {
     return double.tryParse(texto.replaceAll(',', '.'));
   }
 
-  /// Abre o calendário. Só deixa escolher datas dos últimos 30 dias.
+  /// Abre o calendário. Deixa escolher qualquer dia de 2000 até hoje
+  /// (toque no ano, no topo do calendário, para trocar de ano).
   Future<void> _escolherData() async {
-    final hoje = DateTime.now();
     final escolhida = await showDatePicker(
       context: context,
       initialDate: _data,
-      firstDate: hoje.subtract(const Duration(days: 30)),
-      lastDate: hoje,
+      firstDate: dataMinima,
+      lastDate: DateTime.now(),
       helpText: 'Data do gasto',
     );
 
@@ -77,9 +77,12 @@ class _TelaNovoGastoState extends State<TelaNovoGasto> {
     Navigator.pop(context, gasto);
   }
 
-  /// "Hoje, 15 de novembro" fica mais fácil de ler que só "15/11/2026".
+  /// "Hoje, 15 nov · 15/11/2026" fica mais fácil de ler que só a data.
+  /// Em outro ano o título já traz o ano ("Sexta, 10 nov 2023"),
+  /// então a data em números seria repetição.
   String get _textoData {
     final dia = formatarDiaDaLista(_data);
+    if (_data.year != DateTime.now().year) return dia;
     return '$dia · ${formatarData(_data)}';
   }
 

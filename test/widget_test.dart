@@ -50,6 +50,40 @@ void main() {
       expect(controle.gastos, isEmpty);
       expect(controle.total, 0.0);
     });
+
+    test('gastosDoDia acha gastos de qualquer data, até de anos atrás', () {
+      final controle = ControleGastos();
+      final antigo = Gasto(
+        descricao: 'Material escolar',
+        valor: 80.0,
+        data: DateTime(2023, 2, 10, 14, 30),
+      );
+      final mesmoDia = Gasto(
+        descricao: 'Lanche',
+        valor: 12.0,
+        data: DateTime(2023, 2, 10, 9, 0),
+      );
+      final outroDia = Gasto(
+        descricao: 'Uber',
+        valor: 20.0,
+        data: DateTime(2023, 2, 11),
+      );
+      controle.adicionarGasto(mesmoDia);
+      controle.adicionarGasto(antigo);
+      controle.adicionarGasto(outroDia);
+
+      // Do mais recente (14h30) para o mais antigo (9h) do mesmo dia.
+      expect(controle.gastosDoDia(DateTime(2023, 2, 10)), [antigo, mesmoDia]);
+      expect(controle.gastosRecentes(), isEmpty); // fora dos 30 dias
+    });
+
+    test('calendário vai de 2000 até hoje, sem limite de 30 dias', () {
+      expect(dataMinima, DateTime(2000, 1, 1));
+      expect(
+        dataMinima.isBefore(DateTime.now().subtract(const Duration(days: 365))),
+        isTrue,
+      );
+    });
   });
 
   testWidgets('tela inicial mostra o total zerado', (tester) async {

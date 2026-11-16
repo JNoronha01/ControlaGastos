@@ -69,6 +69,11 @@ class _TelaGastosState extends State<TelaGastos> {
     if (gasto != null) {
       setState(() {
         _controle.adicionarGasto(gasto);
+        // Gasto antigo (mais de 30 dias) não aparece na lista padrão.
+        // Para ele não "sumir", a tela já mostra o dia em que ele foi salvo.
+        if (!_controle.gastosRecentes(dias: 30).contains(gasto)) {
+          _diaFiltrado = gasto.data;
+        }
       });
     }
   }
@@ -106,7 +111,8 @@ class _TelaGastosState extends State<TelaGastos> {
     final dia = await showDatePicker(
       context: context,
       initialDate: _diaFiltrado ?? hoje,
-      firstDate: hoje.subtract(const Duration(days: 30)),
+      // Qualquer dia de 2000 até hoje, não só os últimos 30.
+      firstDate: dataMinima,
       lastDate: hoje,
       helpText: 'Ver gastos do dia',
     );
@@ -127,12 +133,12 @@ class _TelaGastosState extends State<TelaGastos> {
   bool _mesmoDia(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
-  /// Lista que aparece na tela: últimos 30 dias, ou só o dia filtrado.
+  /// Lista que aparece na tela: últimos 30 dias, ou o dia filtrado
+  /// (que pode ser de qualquer data, inclusive de anos atrás).
   List<Gasto> get _gastosVisiveis {
-    final recentes = _controle.gastosRecentes(dias: 30);
     final dia = _diaFiltrado;
-    if (dia == null) return recentes;
-    return recentes.where((gasto) => _mesmoDia(gasto.data, dia)).toList();
+    if (dia == null) return _controle.gastosRecentes(dias: 30);
+    return _controle.gastosDoDia(dia);
   }
 
   /// Separa a lista (que já vem do mais recente para o mais antigo)

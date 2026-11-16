@@ -42,5 +42,12 @@ void main() {
         'Sábado, 31 out',
       );
     });
+
+    test('mostra o ano quando a data é de outro ano', () {
+      expect(
+        formatarDiaDaLista(DateTime(2023, 11, 10), hoje: hoje),
+        'Sexta, 10 nov 2023',
+      );
+    });
   });
 }
